@@ -8,18 +8,25 @@ from bs4 import BeautifulSoup
 # Set layout
 st.set_page_config(layout="wide")
 
+
 # Define functions
 @st.cache
 def load_geo_data():
     """
     Load geographic data: country name and region
-    :param nrows:
+    :param:
     :return:
     """
     country_list_url = "https://raw.githubusercontent.com/lukes/ISO-3166-Countries-with-Regional-Codes/master/all/all.csv"
     df_country = pd.read_csv(country_list_url)
     df_country = df_country[["name", "region"]]
     df_country.columns = ["Country", "Region"]
+    country_name_dict = {
+        "Viet Nam": "Vietnam",
+        "United Kingdom of Great Britain and Northern Ireland": "United Kingdom"
+    }
+    df_country["Country"].replace(country_name_dict, inplace = True)
+
     df_country = df_country.fillna("Undefined")
     return df_country
 
@@ -73,6 +80,7 @@ def extract_cfp_link(query):
 
     return df_filtered
 
+
 # TO-DO: solve cases where location is university or country code (USA)
 def extract_country(location_name):
     """
@@ -84,7 +92,18 @@ def extract_country(location_name):
     if location_name is not np.NAN:
         if "," in location_name:
             country_name = location_name.split(",")[-1].strip()
+
+        if "Macau" in location_name:
+            country_name = "China"
+
+    # Later this should be replaced by a function
+    if country_name == "USA":
+        country_name = "United States of America"
+    elif country_name == "UK":
+        country_name = "United Kingdom"
+
     return country_name
+
 
 def main_crawler(query):
     # Get all tables
@@ -104,8 +123,8 @@ def main_crawler(query):
     time_arr = []
     location_arr = []
     deadline_arr = []
-    type_arr = []
-    #link  # To be added
+    # type_arr = []
+    # link  # To be added
 
     event_arr = df_cfp["Event"].unique()
 
@@ -131,11 +150,11 @@ def main_crawler(query):
 
     # Add country name
     df_cfp_cleaned["Country"] = df_cfp_cleaned["Location"].apply(extract_country)
-    df_cfp_cleaned = pd.merge(df_cfp_cleaned, df_country, on = "Country", how = "left")
+    df_cfp_cleaned = pd.merge(df_cfp_cleaned, df_country, on="Country", how="left")
 
     # Add links
     df_links = extract_cfp_link(query)
-    df_final = pd.merge(df_cfp_cleaned, df_links, on = "Abbreviation", how = "left")
+    df_final = pd.merge(df_cfp_cleaned, df_links, on="Abbreviation", how="left")
 
     # Fill NaNs
     df_final = df_final.fillna("Undefined")
@@ -144,6 +163,7 @@ def main_crawler(query):
     df_final = df_final[["Abbreviation", "Name", "Time", "Deadline", "Location", "Country", "Region", "CFP Link"]]
 
     return df_final
+
 
 # Load data
 df_country = load_geo_data()
@@ -197,7 +217,7 @@ if st.button('Search'):
     st.markdown("""---""")
 
     if df_filtered is not None:
-        #st.dataframe(df_filtered, use_container_width = False)
+        # st.dataframe(df_filtered, use_container_width = False)
         st.markdown(df_filtered.to_html(render_links=True), unsafe_allow_html=True)
     else:
         st.text("No event found!")
