@@ -177,7 +177,7 @@ def main_crawler(query):
     df_final = df_final[["Abbreviation", "Name", "Type",
                          "Start Date", "End Date", "Deadline",
                          "Location", "Country", "Region", "CFP Link"
-                         ]]  # "Time",, "CFP Link"
+                         ]]  # "Time",
 
     return df_final
 
