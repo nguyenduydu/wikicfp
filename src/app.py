@@ -25,7 +25,7 @@ def load_geo_data():
         "Viet Nam": "Vietnam",
         "United Kingdom of Great Britain and Northern Ireland": "United Kingdom"
     }
-    df_country["Country"].replace(country_name_dict, inplace = True)
+    df_country["Country"].replace(country_name_dict, inplace=True)
 
     df_country = df_country.fillna("Undefined")
     return df_country
@@ -123,7 +123,7 @@ def main_crawler(query):
     time_arr = []
     location_arr = []
     deadline_arr = []
-    # type_arr = []
+    type_arr = []
     # link  # To be added
 
     event_arr = df_cfp["Event"].unique()
@@ -140,27 +140,45 @@ def main_crawler(query):
 
         deadline_arr.append(df_cfp_filtered.iloc[1, 3])
 
+        if ("Special Issue" in full_name) or ("Journal" in full_name):
+            type_arr.append("Journal")
+        elif "Workshop" in full_name:
+            type_arr.append("Workshop")
+        else:
+            type_arr.append("Conference")
+
     df_cfp_cleaned = pd.DataFrame({
         "Abbreviation": event_arr,
         "Name": full_name_arr,
+        "Type": type_arr,
         "Time": time_arr,
         "Location": location_arr,
         "Deadline": deadline_arr
     })
+
+    # Extract start time and end time
+    df_cfp_cleaned[['Start Date', 'End Date']] = df_cfp_cleaned['Time'].str.split(' - ', 1, expand=True)
 
     # Add country name
     df_cfp_cleaned["Country"] = df_cfp_cleaned["Location"].apply(extract_country)
     df_cfp_cleaned = pd.merge(df_cfp_cleaned, df_country, on="Country", how="left")
 
     # Add links
-    df_links = extract_cfp_link(query)
-    df_final = pd.merge(df_cfp_cleaned, df_links, on="Abbreviation", how="left")
+    # df_links = extract_cfp_link(query)
+    # df_final = pd.merge(df_cfp_cleaned, df_links, on="Abbreviation", how="left")
+    df_final = df_cfp_cleaned
 
     # Fill NaNs
     df_final = df_final.fillna("Undefined")
 
+    # Drop duplicates
+    df_final = df_final.drop_duplicates(["Name", "Start Date", "End Date", "Deadline"])
+
     # Sort columns
-    df_final = df_final[["Abbreviation", "Name", "Time", "Deadline", "Location", "Country", "Region", "CFP Link"]]
+    df_final = df_final[["Abbreviation", "Name", "Type",
+                         "Start Date", "End Date", "Deadline",
+                         "Location", "Country", "Region"
+                         ]]  # "Time",, "CFP Link"
 
     return df_final
 
@@ -175,6 +193,13 @@ st.title('WikiCFP: A Wiki for Calls For Papers')
 # Keyword
 keyword_input = st.text_input("Search CFPs: ")
 
+# Event type
+# Region
+selected_types = st.multiselect('Type: ',
+                                ["Conference", "Workshop", "Journal"],
+                                default=["Conference", "Workshop", "Journal"]
+                                )
+
 # Time
 time_input = st.selectbox(
     'Year: ',
@@ -186,7 +211,9 @@ selected_regions = st.multiselect('Region: ',
                                   ["Asia", "Europe",
                                    "Africa", "Oceania",
                                    "Americas", "Undefined"
-                                   ])
+                                   ],
+                                  default=["Europe", "Americas", "Undefined"]
+                                  )
 
 # Search button
 if st.button('Search'):
@@ -212,7 +239,8 @@ if st.button('Search'):
     df = main_crawler(query)
 
     # Filter region
-    df_filtered = df[df["Region"].isin(selected_regions)]
+    rule = df["Region"].isin(selected_regions) & df["Type"].isin(selected_types)
+    df_filtered = df[rule]
 
     st.markdown("""---""")
 
